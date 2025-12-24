@@ -1,5 +1,6 @@
 import weakref
 import numpy as np
+from memory_profiler import profile
 
 
 class Variable:
@@ -95,6 +96,12 @@ def square(x):
     return Square()(x)
 
 
-for i in range(10):
-    x = Variable(np.random.randn(10000))  # big data
-    y = square(square(square(x)))
+@profile
+def main():
+    for _ in range(10):
+        x = Variable(np.random.randn(10000))  # big data
+        y = square(square(square(x)))
+
+
+if __name__ == '__main__':
+    main()

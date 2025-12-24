@@ -1,0 +1,24 @@
+# Copilot Instructions for this repo
+- Big picture: Chinese edition of “Deep Learning from Scratch 3” building the DeZero framework; `steps/step*.py` are incremental teaching scripts, while the finalized framework lives in `dezero/` and is used by `examples/` and `tests/`.
+- Core tensor/AD: `Variable` + `Function` in [../dezero/core.py](../dezero/core.py) implement dynamic graphs; backprop orders execution by `generation`, stores outputs as `weakref`, and seeds `grad` with `ones_like` when starting from `None`.
+- Config switches: `using_config`, `no_grad()`, and `test_mode()` in [../dezero/core.py](../dezero/core.py) toggle backprop or training mode; stochastic layers (dropout/batchnorm) respect `Config.train`.
+- Array helpers: use `as_array` / `as_variable` to normalize scalars; public function APIs should accept `Variable` or ndarray and return `Variable`.
+- Simple vs full core: `dezero/__init__.py` can swap to `core_simple` (steps 23–32) via `is_simple_core`; keep imports compatible with that flag.
+- Function authoring: subclass `Function`, implement `forward` with NumPy/CuPy ops, `backward` returning tuple-like grads; expose user API wrappers in the same module (see [../dezero/functions.py](../dezero/functions.py)).
+- Layers/parameters: `Parameter` in [../dezero/core.py](../dezero/core.py); `Layer` base in [../dezero/layers.py](../dezero/layers.py) tracks nested params via `__setattr__`, yields via `params()`, and supports `save_weights`/`load_weights` (CPU). `Model` subclasses (see [../dezero/models.py](../dezero/models.py)) extend this.
+- CUDA toggle: [../dezero/cuda.py](../dezero/cuda.py) exposes `get_array_module`, `as_numpy`, `as_cupy`; branch on `cuda.gpu_enable` or use helpers instead of direct `cupy` checks.
+- Data pipeline: datasets in [../dezero/datasets.py](../dezero/datasets.py) emit `(x, t)`; `DataLoader` in [../dezero/dataloaders.py](../dezero/dataloaders.py) batches/shuffles and switches NumPy/CuPy via its `gpu` flag; `SeqDataLoader` iterates sequentially for RNN-style data.
+- Optimizers: `SGD`, `MomentumSGD`, `AdaGrad`, `AdaDelta`, `Adam` in [../dezero/optimizers.py](../dezero/optimizers.py); call `setup(model)` then `update()`. Hooks (`WeightDecay`, `ClipGrad`, `FreezeParam`) mutate grads pre-update via `optimizer.add_hook`.
+- Convolution/pooling: see [../dezero/functions_conv.py](../dezero/functions_conv.py); uses im2col helpers from [../dezero/utils.py](../dezero/utils.py). Mirror these patterns for new spatial ops.
+- Utilities: [../dezero/utils.py](../dezero/utils.py) provides `gradient_check`, graph viz (`plot_dot_graph`), and numpy helpers (`sum_to`, `reshape_sum_backward`, `logsumexp`, etc.); reuse instead of reimplementing broadcasting/backward logic.
+- Numerical stability: several ops cache forward outputs for backward (e.g., `Exp`, `Log`, `Softmax`); follow that pattern when needed.
+- Dtypes/shapes: layers default to `float32` params (see `Linear`); gradients handle broadcasting via helpers—use `reshape_sum_backward` where necessary.
+- Training loops: common recipe—build a `Model`, pick loss from [../dezero/functions.py](../dezero/functions.py) (e.g., `softmax_cross_entropy`), call `model.cleargrads()`, `loss.backward()`, then `optimizer.update()`.
+- GPU usage: install CuPy to enable; move params with `Layer.to_gpu()` / `to_cpu()`; use `DataLoader(gpu=True)` to feed CuPy arrays.
+- Examples & demos: `examples/` scripts show end-to-end usage (GAN, VAE, Grad-CAM, style transfer); `steps/` are pedagogical snapshots—follow `dezero/` for canonical behavior.
+- Testing: `tests/` use `unittest`; run `python -m unittest discover tests`. GPU suites in `tests/gpu/` require CuPy.
+- Packaging: version from `__version__` in `dezero/__init__.py`; `setup.py` installs `dezero` with NumPy dependency only.
+- Style/conventions: prefer `cuda.get_array_module` over manual NumPy/CuPy checks; keep module-level function APIs wrapping `Function`/`Layer` objects; honor `Config` flags for inference vs train behavior.
+- Debugging: `Variable.__repr__` shows data; `unchain_backward()` detaches graphs; `plot_dot_graph` helps visualize graphs during development.
+- Performance: default `retain_grad=False` frees intermediates; apply `ClipGrad` hook to stabilize deep nets; clear grads via `cleargrad()` / `cleargrads()`.
+
