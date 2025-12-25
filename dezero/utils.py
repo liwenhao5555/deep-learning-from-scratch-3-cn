@@ -364,6 +364,30 @@ def get_file(url, file_name=None):
     except (Exception, KeyboardInterrupt) as e:
         if os.path.exists(file_path):
             os.remove(file_path)
+
+        # MNIST fallback: try https yann then Google mirror if initial URL fails
+        mnist_prefixes = [
+            'http://yann.lecun.com/exdb/mnist/',
+            'https://yann.lecun.com/exdb/mnist/',
+            'https://storage.googleapis.com/cvdf-datasets/mnist/'
+        ]
+        for prefix in mnist_prefixes:
+            if url.startswith(prefix):
+                for alt in mnist_prefixes:
+                    if url.startswith(alt):
+                        continue
+                    alt_url = alt + file_name
+                    try:
+                        print("Retrying from mirror: " + alt_url)
+                        urllib.request.urlretrieve(alt_url, file_path, show_progress)
+                        print(" Done")
+                        return file_path
+                    except Exception:
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                        continue
+                # If all MNIST mirrors fail, re-raise original exception
+                raise
         raise
     print(" Done")
 
